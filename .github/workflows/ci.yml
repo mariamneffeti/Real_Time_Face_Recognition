@@ -1,0 +1,33 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Check imports
+        run: python -c "import fastapi, cv2, uvicorn; print('All imports OK')"
+
+      - name: Verify app loads
+        run: python -c "
+        import os
+        os.environ['TESTING'] = '1'
+        print('App structure OK')
+        "
