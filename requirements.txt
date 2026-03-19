@@ -7,3 +7,6 @@ uvicorn>=0.21.0
 pydantic>=1.10.0
 python-multipart>=0.0.5
 python-dotenv>=0.19.0
+onnxruntime-gpu>=1.14.0; platform_system == "Windows" and platform_machine == "AMD64"
+onnxruntime-gpu>=1.14.0; platform_system == "Linux" and platform_machine == "x86_64"
+onnxruntime-gpu>=1.14.0; platform_system == "Darwin"

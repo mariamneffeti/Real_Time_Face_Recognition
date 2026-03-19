@@ -3,8 +3,8 @@ api.py - FastAPI Backend
 Run:
   uvicorn api:app --host 0.0.0.0 --port 8000 --reload
 """
-
 from __future__ import annotations
+from liveness import get_detector as get_liveness_detector
 import asyncio
 import base64
 import io
@@ -176,19 +176,23 @@ async def register(
 
 
 @app.post("/recognize", response_model=RecognitionResponse, summary="Recognize faces in image")
-async def recognize(image: UploadFile = File(...), log: bool = True):
+async def recognize(image: UploadFile = File(...), log: bool = True, check_liveness: bool = True):
     """Recognize faces in uploaded image and optionally log attendance."""
     img = await decode_upload(image)
     elapsed_ms, detections = await asyncio.to_thread(engine.process_frame, img)
 
     results = []
+    liveness_detector = get_liveness_detector()
     for det in detections:
+        live, live_score = True, 1.0
+        if check_liveness:
+            live, live_score = liveness_detector.is_live(img, det.bbox)
         results.append(DetectionResult(
-            identity=det.identity,
+            identity=det.identity if live else "spoof_detected",
             similarity=round(det.similarity, 4),
             bbox=list(det.bbox),
         ))
-        if log and det.identity != "unknown":  # FIX: "Unknown" → "unknown" (lowercase)
+        if log and live and det.identity != "unknown":  # FIX: "Unknown" → "unknown" (lowercase)
             pid = next(
                 (engine.database.ids[i] for i, n in enumerate(engine.database.names)
                  if n == det.identity), det.identity

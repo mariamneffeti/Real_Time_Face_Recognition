@@ -32,6 +32,9 @@ A modern real-time face recognition and attendance tracking system using DeepFac
 - `DELETE /people/{person_id}` - Remove person from database
 - `GET /stats` - Get engine and database statistics
 
+## Liveness Detection
+Download the model before running:
+curl -L "https://github.com/minivision-ai/..." -o models/liveness.onnx
 ---
 
 ## 📋 Installation
