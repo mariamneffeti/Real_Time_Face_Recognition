@@ -827,13 +827,80 @@
             showAlert('Snapshot feature coming soon!', 'warning');
         }
 
-        // Load data on page load
+        // ── WebSocket for real-time detections ──────────────────────────
+        let ws = null;
+        let wsRetryDelay = 2000;
+
+        function connectWS() {
+            const url = `ws://${window.location.host}/ws/stream`;
+            ws = new WebSocket(url);
+
+            ws.onopen = () => {
+                console.log('WebSocket connected');
+                document.getElementById('status-text').textContent = 'Live';
+                wsRetryDelay = 2000;
+            };
+
+            ws.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                updateDetections(data.detections);
+                // update fps display
+                if (data.elapsed_ms) {
+                    const fps = (1000 / data.elapsed_ms).toFixed(0);
+                    document.getElementById('feed-fps').textContent = `${fps} FPS`;
+                }
+            };
+
+            ws.onerror = () => {
+                document.getElementById('status-text').textContent = 'Reconnecting...';
+            };
+
+            ws.onclose = () => {
+                document.getElementById('status-text').textContent = 'Reconnecting...';
+                setTimeout(connectWS, wsRetryDelay);
+                wsRetryDelay = Math.min(wsRetryDelay * 1.5, 15000);
+            };
+        }
+
+        function updateDetections(detections) {
+            const list = document.getElementById('detection-list');
+            if (!detections || detections.length === 0) {
+                list.innerHTML = `<div class="empty-state" style="padding: 20px;">
+                    <div class="empty-state-text">No faces detected</div>
+                </div>`;
+                return;
+            }
+            list.innerHTML = detections.map(d => {
+                const isUnknown = d.identity === 'unknown';
+                const pct = (d.similarity * 100).toFixed(0);
+                return `
+                <div class="detection-item ${isUnknown ? 'unknown' : ''}">
+                    <div class="detection-avatar">${isUnknown ? '?' : d.identity.charAt(0).toUpperCase()}</div>
+                    <div class="detection-info">
+                        <div class="detection-name">${isUnknown ? 'Unknown' : d.identity}</div>
+                        <div class="detection-confidence">Similarity score</div>
+                    </div>
+                    <div class="detection-similarity">${pct}%</div>
+                </div>`;
+            }).join('');
+
+            // auto-refresh attendance table when a face is detected
+            loadAttendance();
+        }
+
+        // ── Load data on page load ───────────────────────────────────────
         loadStats();
         loadAttendance();
         loadPeople();
 
         // Refresh stats every 5 seconds
         setInterval(loadStats, 5000);
+
+        // Refresh attendance every 3 seconds
+        setInterval(loadAttendance, 3000);
+
+        // Connect WebSocket
+        connectWS();
 
         // Close modal on outside click
         document.querySelectorAll('.modal').forEach(m => {

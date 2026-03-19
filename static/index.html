@@ -514,8 +514,7 @@ let frameCount = 0;
 
 function connectWS() {
   const proto = location.protocol === 'https:' ? 'wss' : 'ws';
-  const host  = API ? API.replace(/^https?/, '') : '//' + location.host;
-  ws = new WebSocket(proto + host + '/ws/stream');
+  ws = new WebSocket(`${proto}://${location.host}/ws/stream`);
 
   ws.onmessage = (e) => {
     const d = JSON.parse(e.data);

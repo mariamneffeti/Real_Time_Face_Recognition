@@ -15,7 +15,7 @@ from contextlib import asynccontextmanager
 from datetime import datetime, date
 from pathlib import Path
 from typing import Optional
-
+import os
 import cv2
 import numpy as np
 from fastapi import FastAPI, File, UploadFile, HTTPException, WebSocket, WebSocketDisconnect, Form
@@ -27,7 +27,7 @@ from pydantic import BaseModel
 from core.engine import FaceEngine
 from datetime import datetime, timezone
 from dotenv import load_dotenv
-
+from core.engine import _InsightFaceBackend as Backend
 load_dotenv()
 
 
@@ -62,15 +62,16 @@ def init_db() -> sqlite3.Connection:
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_date ON attendance (date)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_person ON attendance (person_id)")
     conn.commit()
+    conn.execute("PRAGMA journal_mode=WAL")
+    conn.execute("PRAGMA synchronous=NORMAL")
     return conn
-db_conn.execute("PRAGMA journal_mode=WAL")
-db_conn.execute("PRAGMA synchronous=NORMAL")
+
 
 
 def log_attendance(conn: sqlite3.Connection, person_id: str, name: str, similarity: float, source: str = "camera") -> None:
-    """Log attendance record to database (max once per 60 seconds per person)."""
+    """Log attendance record to database (max once per 60 seconds per person).(changed for yje demo)"""
     now = datetime.now(timezone.utc)
-    recent = conn.execute("SELECT * FROM attendance WHERE person_id = ? AND timestamp > datetime('now','-60 seconds')",
+    recent = conn.execute("SELECT * FROM attendance WHERE person_id = ? AND timestamp > datetime('now','-5 seconds')",
                           (person_id,)).fetchone()
     if recent:
         return  # Already logged within 60 seconds
