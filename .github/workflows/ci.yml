@@ -22,10 +22,12 @@ jobs:
       - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libgl1-mesa-glx libglib2.0-0
+          # libglib2.0-0 is still required for OpenCV even in headless mode
+          sudo apt-get install -y libglib2.0-0 
 
       - name: Install Python dependencies
-        run: pip install fastapi uvicorn opencv-python-headless python-dotenv pydantic
+        run: |
+          pip install fastapi uvicorn opencv-python-headless python-dotenv pydantic
 
       - name: Check imports
         run: python -c "import fastapi, cv2, uvicorn; print('All imports OK')"
