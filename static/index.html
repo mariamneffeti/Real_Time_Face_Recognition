@@ -1,0 +1,707 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FaceVision · Attendance Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:ital,wght@0,400;0,500;1,400&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg0: #080b10;
+    --bg1: #0e1219;
+    --bg2: #141922;
+    --bg3: #1c2330;
+    --border: rgba(255,255,255,0.07);
+    --border2: rgba(255,255,255,0.13);
+    --accent: #3dffc0;
+    --accent2: #5b6af5;
+    --warn: #ff5c6e;
+    --gold: #f5c842;
+    --text: #dde3ef;
+    --muted: #5e6a80;
+    --font-display: 'Bebas Neue', sans-serif;
+    --font-ui: 'Instrument Sans', sans-serif;
+    --font-mono: 'DM Mono', monospace;
+  }
+
+  html, body { height: 100%; }
+
+  body {
+    background: var(--bg0);
+    color: var(--text);
+    font-family: var(--font-ui);
+    font-size: 14px;
+    line-height: 1.5;
+    overflow-x: hidden;
+  }
+
+  /* ── Grid noise texture ── */
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image:
+      repeating-linear-gradient(0deg, transparent, transparent 39px, rgba(255,255,255,0.018) 39px, rgba(255,255,255,0.018) 40px),
+      repeating-linear-gradient(90deg, transparent, transparent 39px, rgba(255,255,255,0.018) 39px, rgba(255,255,255,0.018) 40px);
+    pointer-events: none; z-index: 0;
+  }
+
+  /* ── Ambient glow blobs ── */
+  .blob {
+    position: fixed; border-radius: 50%;
+    pointer-events: none; filter: blur(80px); z-index: 0;
+  }
+  .blob-1 { width: 500px; height: 400px; top: -120px; left: -100px; background: rgba(61,255,192,0.06); }
+  .blob-2 { width: 400px; height: 400px; bottom: -100px; right: -80px; background: rgba(91,106,245,0.07); }
+
+  /* ── Layout ── */
+  .app { position: relative; z-index: 1; display: grid; grid-template-rows: auto 1fr; min-height: 100vh; }
+
+  /* ── Topbar ── */
+  header {
+    display: flex; align-items: center; gap: 20px;
+    padding: 0 28px;
+    height: 58px;
+    border-bottom: 1px solid var(--border);
+    background: rgba(8,11,16,0.9);
+    backdrop-filter: blur(10px);
+    position: sticky; top: 0; z-index: 100;
+  }
+  .logo {
+    font-family: var(--font-display);
+    font-size: 26px;
+    letter-spacing: 0.04em;
+    color: var(--text);
+  }
+  .logo em { color: var(--accent); font-style: normal; }
+  .nav { display: flex; gap: 2px; margin-left: auto; }
+  .nav-btn {
+    font-family: var(--font-mono); font-size: 11px; font-weight: 500;
+    letter-spacing: 0.06em;
+    padding: 6px 14px; border-radius: 6px; border: none;
+    background: transparent; color: var(--muted);
+    cursor: pointer; transition: all .15s;
+  }
+  .nav-btn:hover, .nav-btn.active { background: var(--bg3); color: var(--text); }
+  .status-pill {
+    display: flex; align-items: center; gap: 6px;
+    font-family: var(--font-mono); font-size: 11px;
+    color: var(--muted);
+    border: 1px solid var(--border);
+    padding: 4px 12px; border-radius: 20px;
+  }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
+  .live-dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--warn); animation: pulse 2s ease-in-out infinite;
+  }
+  .live-dot.on { background: var(--accent); }
+
+  /* ── Content ── */
+  .content { padding: 28px; display: flex; flex-direction: column; gap: 24px; }
+
+  /* ── Page sections ── */
+  .page { display: none; flex-direction: column; gap: 24px; }
+  .page.active { display: flex; }
+
+  /* ── Stat cards ── */
+  .stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+  .stat-card {
+    background: var(--bg1); border: 1px solid var(--border);
+    border-radius: 12px; padding: 18px 20px;
+    display: flex; flex-direction: column; gap: 6px;
+    position: relative; overflow: hidden;
+  }
+  .stat-card::before {
+    content: ''; position: absolute;
+    top: 0; left: 0; right: 0; height: 2px;
+    background: linear-gradient(90deg, transparent, var(--accent-c, var(--accent)), transparent);
+    opacity: 0.6;
+  }
+  .stat-label { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.1em; color: var(--muted); text-transform: uppercase; }
+  .stat-value { font-family: var(--font-display); font-size: 38px; color: var(--text); line-height: 1; }
+  .stat-sub { font-size: 11px; color: var(--muted); }
+
+  /* ── Section cards ── */
+  .card {
+    background: var(--bg1); border: 1px solid var(--border);
+    border-radius: 12px; overflow: hidden;
+  }
+  .card-head {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 20px; border-bottom: 1px solid var(--border);
+  }
+  .card-title {
+    font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.1em;
+    color: var(--muted); text-transform: uppercase;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .card-title::before {
+    content: ''; width: 4px; height: 4px; border-radius: 50%;
+    background: var(--accent);
+  }
+  .card-body { padding: 20px; }
+
+  /* ── Two-col layout ── */
+  .two-col { display: grid; grid-template-columns: 1fr 340px; gap: 20px; align-items: start; }
+
+  /* ── Camera feed ── */
+  .feed-wrap {
+    position: relative; background: #050709;
+    border-radius: 10px; overflow: hidden;
+    aspect-ratio: 4/3;
+  }
+  #feed-img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .feed-corner {
+    position: absolute; width: 18px; height: 18px; pointer-events: none;
+  }
+  .feed-corner.tl { top:8px; left:8px; border-top:2px solid var(--accent); border-left:2px solid var(--accent); }
+  .feed-corner.tr { top:8px; right:8px; border-top:2px solid var(--accent); border-right:2px solid var(--accent); }
+  .feed-corner.bl { bottom:8px; left:8px; border-bottom:2px solid var(--accent); border-left:2px solid var(--accent); }
+  .feed-corner.br { bottom:8px; right:8px; border-bottom:2px solid var(--accent); border-right:2px solid var(--accent); }
+  .feed-status {
+    position: absolute; top:12px; right:12px;
+    font-family: var(--font-mono); font-size: 10px;
+    background: rgba(8,11,16,0.8); color: var(--accent);
+    padding: 3px 10px; border-radius: 4px;
+    border: 1px solid rgba(61,255,192,0.2);
+  }
+
+  /* ── Detection list ── */
+  .det-list { display: flex; flex-direction: column; gap: 8px; }
+  .det-item {
+    display: flex; align-items: center; gap: 12px;
+    padding: 10px 14px; border-radius: 8px;
+    background: var(--bg2); border: 1px solid var(--border);
+    animation: slideIn .2s ease;
+  }
+  @keyframes slideIn { from { opacity:0; transform: translateY(-6px); } }
+  .det-avatar {
+    width: 32px; height: 32px; border-radius: 6px;
+    background: var(--bg3); display: flex; align-items: center;
+    justify-content: center; font-size: 14px; flex-shrink: 0;
+    border: 1px solid var(--border2);
+    font-family: var(--font-mono); color: var(--accent);
+  }
+  .det-name { font-weight: 600; font-size: 13px; }
+  .det-sim {
+    margin-left: auto; font-family: var(--font-mono); font-size: 11px;
+    color: var(--accent);
+  }
+  .det-unknown .det-name { color: var(--warn); }
+  .det-unknown .det-sim  { color: var(--warn); }
+  .no-dets { font-family: var(--font-mono); font-size: 12px; color: var(--muted); padding: 16px 0; }
+
+  /* ── Table ── */
+  .tbl-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th {
+    font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.08em;
+    color: var(--muted); text-transform: uppercase; text-align: left;
+    padding: 8px 14px; border-bottom: 1px solid var(--border);
+  }
+  td { padding: 10px 14px; border-bottom: 1px solid var(--border); }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: rgba(255,255,255,0.02); }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 4px;
+    font-family: var(--font-mono); font-size: 10px;
+    background: rgba(61,255,192,0.12); color: var(--accent);
+    border: 1px solid rgba(61,255,192,0.2);
+  }
+
+  /* ── Filter bar ── */
+  .filter-row { display: flex; align-items: center; gap: 10px; }
+  .input {
+    font-family: var(--font-mono); font-size: 12px;
+    background: var(--bg2); border: 1px solid var(--border);
+    color: var(--text); border-radius: 6px;
+    padding: 7px 12px; outline: none;
+    transition: border-color .15s;
+  }
+  .input:focus { border-color: var(--border2); }
+  .btn {
+    font-family: var(--font-mono); font-size: 11px; font-weight: 500;
+    letter-spacing: 0.05em; padding: 7px 16px; border-radius: 6px;
+    border: 1px solid transparent; cursor: pointer; transition: all .15s;
+    white-space: nowrap;
+  }
+  .btn-primary { background: var(--accent); color: #040a08; border-color: var(--accent); }
+  .btn-primary:hover { filter: brightness(1.1); }
+  .btn-ghost { background: transparent; color: var(--muted); border-color: var(--border); }
+  .btn-ghost:hover { border-color: var(--border2); color: var(--text); }
+  .btn-danger-ghost { background: transparent; color: var(--warn); border-color: rgba(255,92,110,0.3); }
+  .btn-danger-ghost:hover { background: rgba(255,92,110,0.08); }
+
+  /* ── Register form ── */
+  .reg-form { display: flex; flex-direction: column; gap: 14px; }
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .form-group { display: flex; flex-direction: column; gap: 6px; }
+  .form-label { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.1em; color: var(--muted); text-transform: uppercase; }
+  .drop-zone {
+    border: 1.5px dashed var(--border2); border-radius: 8px;
+    padding: 28px; text-align: center;
+    cursor: pointer; transition: all .2s;
+    color: var(--muted); font-size: 13px;
+  }
+  .drop-zone:hover, .drop-zone.dragover { border-color: var(--accent); color: var(--accent); background: rgba(61,255,192,0.04); }
+  .drop-zone .icon { font-size: 28px; margin-bottom: 8px; }
+  #reg-preview { width: 100%; border-radius: 8px; display: none; margin-top: 8px; }
+
+  /* ── People list ── */
+  .people-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; }
+  .person-card {
+    background: var(--bg2); border: 1px solid var(--border);
+    border-radius: 10px; padding: 16px 14px;
+    display: flex; flex-direction: column; align-items: center; gap: 8px;
+    text-align: center; position: relative;
+  }
+  .person-avatar {
+    width: 48px; height: 48px; border-radius: 50%;
+    background: var(--bg3); border: 2px solid var(--border2);
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--font-display); font-size: 20px; color: var(--accent2);
+  }
+  .person-name { font-weight: 600; font-size: 13px; }
+  .person-id { font-family: var(--font-mono); font-size: 10px; color: var(--muted); }
+  .person-del {
+    position: absolute; top: 8px; right: 8px;
+    background: none; border: none; color: var(--muted); cursor: pointer;
+    font-size: 14px; line-height: 1; transition: color .15s;
+  }
+  .person-del:hover { color: var(--warn); }
+
+  /* ── Toast ── */
+  @keyframes toastIn { from { opacity:0; transform: translateY(20px); } }
+  @keyframes toastOut { to { opacity:0; transform: translateY(20px); } }
+  #toast {
+    position: fixed; bottom: 28px; right: 28px; z-index: 999;
+    font-family: var(--font-mono); font-size: 12px;
+    background: var(--bg3); color: var(--text);
+    border: 1px solid var(--border2); border-radius: 8px;
+    padding: 12px 18px; display: none;
+    animation: toastIn .25s ease;
+  }
+  #toast.err { border-color: rgba(255,92,110,0.4); color: var(--warn); }
+  #toast.ok  { border-color: rgba(61,255,192,0.3); color: var(--accent); }
+
+  @media (max-width: 900px) {
+    .stats-row { grid-template-columns: repeat(2,1fr); }
+    .two-col { grid-template-columns: 1fr; }
+    .form-row { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="blob blob-1"></div>
+<div class="blob blob-2"></div>
+
+<div class="app">
+<header>
+  <div class="logo">Face<em>Vision</em></div>
+  <nav class="nav">
+    <button class="nav-btn active" onclick="showPage('live')">Live</button>
+    <button class="nav-btn" onclick="showPage('attendance')">Attendance</button>
+    <button class="nav-btn" onclick="showPage('people')">People</button>
+    <button class="nav-btn" onclick="showPage('register')">Register</button>
+  </nav>
+  <div class="status-pill">
+    <div class="live-dot" id="api-dot"></div>
+    <span id="api-status">connecting…</span>
+  </div>
+</header>
+
+<div class="content">
+
+  <!-- ── Live ── -->
+  <div class="page active" id="page-live">
+    <div class="stats-row">
+      <div class="stat-card" style="--accent-c: var(--accent)">
+        <div class="stat-label">Faces now</div>
+        <div class="stat-value" id="s-faces">0</div>
+        <div class="stat-sub">in current frame</div>
+      </div>
+      <div class="stat-card" style="--accent-c: var(--gold)">
+        <div class="stat-label">Known today</div>
+        <div class="stat-value" id="s-known-today">—</div>
+        <div class="stat-sub">unique people</div>
+      </div>
+      <div class="stat-card" style="--accent-c: var(--accent2)">
+        <div class="stat-label">Total events</div>
+        <div class="stat-value" id="s-total">—</div>
+        <div class="stat-sub">all time</div>
+      </div>
+      <div class="stat-card" style="--accent-c: var(--warn)">
+        <div class="stat-label">Registered</div>
+        <div class="stat-value" id="s-people">—</div>
+        <div class="stat-sub">in database</div>
+      </div>
+    </div>
+
+    <div class="two-col">
+      <div class="card">
+        <div class="card-head">
+          <div class="card-title">Camera feed</div>
+          <div class="feed-status" id="stream-fps">— fps</div>
+        </div>
+        <div class="card-body" style="padding:12px">
+          <div class="feed-wrap">
+            <div class="feed-corner tl"></div><div class="feed-corner tr"></div>
+            <div class="feed-corner bl"></div><div class="feed-corner br"></div>
+            <img id="feed-img" src="/stream" alt="live feed">
+            <div class="feed-status" id="stream-label">LIVE</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><div class="card-title">Detections</div></div>
+        <div class="card-body">
+          <div class="det-list" id="det-list">
+            <div class="no-dets">Waiting for detections…</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Attendance ── -->
+  <div class="page" id="page-attendance">
+    <div class="card">
+      <div class="card-head">
+        <div class="card-title">Attendance Log</div>
+        <div class="filter-row">
+          <input class="input" id="filter-date" type="date" title="Filter by date">
+          <input class="input" id="filter-person" type="text" placeholder="Person ID…" style="width:140px">
+          <button class="btn btn-ghost" onclick="loadAttendance()">Filter</button>
+          <button class="btn btn-ghost" onclick="exportCSV()">Export CSV</button>
+        </div>
+      </div>
+      <div class="card-body" style="padding:0">
+        <div class="tbl-wrap">
+          <table id="att-table">
+            <thead>
+              <tr>
+                <th>#</th><th>Name</th><th>Person ID</th>
+                <th>Timestamp</th><th>Date</th><th>Similarity</th><th>Source</th>
+              </tr>
+            </thead>
+            <tbody id="att-body">
+              <tr><td colspan="7" style="color:var(--muted);padding:20px 14px">Loading…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── People ── -->
+  <div class="page" id="page-people">
+    <div class="card">
+      <div class="card-head">
+        <div class="card-title">Registered People</div>
+        <button class="btn btn-ghost" onclick="loadPeople()">Refresh</button>
+      </div>
+      <div class="card-body">
+        <div class="people-grid" id="people-grid">
+          <div style="color:var(--muted);font-family:var(--font-mono);font-size:12px">Loading…</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Register ── -->
+  <div class="page" id="page-register">
+    <div class="two-col" style="grid-template-columns:480px 1fr">
+      <div class="card">
+        <div class="card-head"><div class="card-title">Register New Person</div></div>
+        <div class="card-body">
+          <div class="reg-form">
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">Full name *</label>
+                <input class="input" id="reg-name" type="text" placeholder="Alice Smith">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Person ID (optional)</label>
+                <input class="input" id="reg-id" type="text" placeholder="alice_smith">
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Photo *</label>
+              <div class="drop-zone" id="drop-zone" onclick="document.getElementById('reg-file').click()">
+                <div class="icon">⬆</div>
+                <div>Click or drag a clear front-facing photo</div>
+                <div style="font-size:11px;margin-top:4px">JPG, PNG, WEBP</div>
+              </div>
+              <input type="file" id="reg-file" accept="image/*" style="display:none" onchange="previewFile(this)">
+              <img id="reg-preview" alt="Preview">
+            </div>
+            <button class="btn btn-primary" onclick="registerPerson()" style="width:100%">Register Person</button>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-head"><div class="card-title">Tips for Best Results</div></div>
+        <div class="card-body" style="display:flex;flex-direction:column;gap:12px">
+          <div style="font-size:13px;color:var(--muted);line-height:1.8">
+            ✓ &nbsp;Use a clear, front-facing photo<br>
+            ✓ &nbsp;Good lighting, no heavy shadows<br>
+            ✓ &nbsp;Register multiple photos per person<br>
+            ✓ &nbsp;Avoid sunglasses or masks<br>
+            ✓ &nbsp;At least 200×200 px resolution<br>
+          </div>
+          <div style="font-family:var(--font-mono);font-size:11px;color:var(--muted);background:var(--bg2);padding:14px;border-radius:8px;line-height:2">
+            # Or via CLI:<br>
+            python run.py --register "Alice" photo.jpg
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /content -->
+</div><!-- /app -->
+
+<div id="toast"></div>
+
+<script>
+const API = '';   // same origin — change to 'http://localhost:8000' if separate
+
+// ── Navigation ────────────────────────────────────────────
+function showPage(id) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById('page-' + id).classList.add('active');
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  event.target.classList.add('active');
+  if (id === 'attendance') loadAttendance();
+  if (id === 'people') loadPeople();
+}
+
+// ── Toast ─────────────────────────────────────────────────
+function toast(msg, type='ok', ms=3000) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = type;
+  el.style.display = 'block';
+  clearTimeout(el._t);
+  el._t = setTimeout(() => { el.style.display='none'; }, ms);
+}
+
+// ── API health check ──────────────────────────────────────
+async function checkApi() {
+  try {
+    const r = await fetch(API + '/stats');
+    if (r.ok) {
+      const data = await r.json();
+      document.getElementById('api-dot').classList.add('on');
+      document.getElementById('api-status').textContent = 'API online';
+      document.getElementById('s-people').textContent = data.database.people;
+      document.getElementById('s-total').textContent = data.engine.detections;
+    }
+  } catch(e) {
+    document.getElementById('api-dot').classList.remove('on');
+    document.getElementById('api-status').textContent = 'API offline';
+  }
+}
+
+// ── WebSocket live feed ───────────────────────────────────
+let ws = null;
+let lastFrameTs = 0;
+let frameCount = 0;
+
+function connectWS() {
+  const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+  const host  = API ? API.replace(/^https?/, '') : '//' + location.host;
+  ws = new WebSocket(proto + host + '/ws/stream');
+
+  ws.onmessage = (e) => {
+    const d = JSON.parse(e.data);
+
+    // Update frame image
+    const img = document.getElementById('feed-img');
+    img.src = 'data:image/jpeg;base64,' + d.frame;
+
+    // FPS
+    frameCount++;
+    const now = d.ts * 1000;
+    if (lastFrameTs) {
+      const fps = 1000 / (now - lastFrameTs);
+      document.getElementById('stream-fps').textContent = fps.toFixed(1) + ' fps';
+    }
+    lastFrameTs = now;
+
+    // Detections panel
+    document.getElementById('s-faces').textContent = d.detections.length;
+    renderDetections(d.detections);
+  };
+
+  ws.onerror = () => {
+    // Fall back to MJPEG stream
+    document.getElementById('feed-img').src = API + '/stream';
+  };
+
+  ws.onclose = () => setTimeout(connectWS, 2000);
+}
+
+function renderDetections(dets) {
+  const el = document.getElementById('det-list');
+  if (!dets.length) {
+    el.innerHTML = '<div class="no-dets">No faces detected</div>';
+    return;
+  }
+  el.innerHTML = dets.map(d => {
+    const known = d.identity !== 'Unknown';
+    const initials = known ? d.identity.slice(0,2).toUpperCase() : '??';
+    return `<div class="det-item ${known?'':'det-unknown'}">
+      <div class="det-avatar">${initials}</div>
+      <div>
+        <div class="det-name">${d.identity}</div>
+        <div style="font-size:11px;color:var(--muted)">bbox: ${d.bbox.join(', ')}</div>
+      </div>
+      <div class="det-sim">${(d.similarity*100).toFixed(0)}%</div>
+    </div>`;
+  }).join('');
+}
+
+// ── Attendance ────────────────────────────────────────────
+async function loadAttendance() {
+  const dateF = document.getElementById('filter-date').value;
+  const pidF  = document.getElementById('filter-person').value.trim();
+  let url = API + '/attendance?limit=300';
+  if (dateF) url += '&date_filter=' + dateF;
+  if (pidF)  url += '&person_id=' + encodeURIComponent(pidF);
+
+  try {
+    const rows = await fetch(url).then(r => r.json());
+    const body = document.getElementById('att-body');
+
+    // Today stats
+    const today = new Date().toISOString().slice(0,10);
+    const todayRows = rows.filter(r => r.date === today);
+    const uniqueToday = new Set(todayRows.map(r => r.person_id)).size;
+    document.getElementById('s-known-today').textContent = uniqueToday;
+
+    if (!rows.length) {
+      body.innerHTML = '<tr><td colspan="7" style="color:var(--muted);padding:20px 14px">No records found</td></tr>';
+      return;
+    }
+    body.innerHTML = rows.map(r => `<tr>
+      <td style="color:var(--muted);font-family:var(--font-mono);font-size:11px">${r.id}</td>
+      <td><strong>${r.person_name}</strong></td>
+      <td style="font-family:var(--font-mono);font-size:11px;color:var(--muted)">${r.person_id}</td>
+      <td style="font-family:var(--font-mono);font-size:11px">${r.timestamp.replace('T',' ').slice(0,19)}</td>
+      <td><span class="badge">${r.date}</span></td>
+      <td style="font-family:var(--font-mono);color:var(--accent)">${(r.similarity*100).toFixed(1)}%</td>
+      <td style="color:var(--muted);font-size:12px">${r.source}</td>
+    </tr>`).join('');
+  } catch(e) {
+    toast('Failed to load attendance', 'err');
+  }
+}
+
+function exportCSV() {
+  const rows = [...document.querySelectorAll('#att-table tr')];
+  const csv = rows.map(r =>
+    [...r.querySelectorAll('th,td')]
+      .map(c => '"' + c.textContent.trim().replace(/"/g,'""') + '"').join(',')
+  ).join('\n');
+  const blob = new Blob([csv], {type:'text/csv'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'attendance_' + new Date().toISOString().slice(0,10) + '.csv';
+  a.click();
+}
+
+// ── People ────────────────────────────────────────────────
+async function loadPeople() {
+  const people = await fetch(API + '/people').then(r => r.json()).catch(()=>[]);
+  const grid = document.getElementById('people-grid');
+  if (!people.length) {
+    grid.innerHTML = '<div style="color:var(--muted);font-family:var(--font-mono);font-size:12px">No people registered yet</div>';
+    return;
+  }
+  grid.innerHTML = people.map(p => `
+    <div class="person-card">
+      <button class="person-del" onclick="deletePerson('${p.person_id}','${p.name}')" title="Remove">✕</button>
+      <div class="person-avatar">${p.name.slice(0,1).toUpperCase()}</div>
+      <div class="person-name">${p.name}</div>
+      <div class="person-id">${p.person_id}</div>
+    </div>`).join('');
+}
+
+async function deletePerson(id, name) {
+  if (!confirm(`Remove ${name} from the database?`)) return;
+  const r = await fetch(API + '/people/' + id, {method:'DELETE'}).catch(()=>null);
+  if (r && r.ok) { toast('Removed ' + name, 'ok'); loadPeople(); }
+  else toast('Delete failed', 'err');
+}
+
+// ── Register ──────────────────────────────────────────────
+let regFile = null;
+
+function previewFile(input) {
+  const file = input.files[0];
+  if (!file) return;
+  regFile = file;
+  const reader = new FileReader();
+  reader.onload = e => {
+    const img = document.getElementById('reg-preview');
+    img.src = e.target.result;
+    img.style.display = 'block';
+  };
+  reader.readAsDataURL(file);
+}
+
+// Drag & drop
+const dz = document.getElementById('drop-zone');
+dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('dragover'); });
+dz.addEventListener('dragleave', () => dz.classList.remove('dragover'));
+dz.addEventListener('drop', e => {
+  e.preventDefault(); dz.classList.remove('dragover');
+  const file = e.dataTransfer.files[0];
+  if (file) { document.getElementById('reg-file').files; regFile = file; previewFile({files:[file]}); }
+});
+
+async function registerPerson() {
+  const name = document.getElementById('reg-name').value.trim();
+  const pid  = document.getElementById('reg-id').value.trim();
+  if (!name) { toast('Name is required', 'err'); return; }
+  if (!regFile) { toast('Please select a photo', 'err'); return; }
+
+  const fd = new FormData();
+  fd.append('name', name);
+  if (pid) fd.append('person_id', pid);
+  fd.append('image', regFile);
+
+  try {
+    const r = await fetch(API + '/register', {method:'POST', body: fd});
+    const d = await r.json();
+    if (r.ok) {
+      toast(`✓ Registered ${name}`, 'ok');
+      document.getElementById('reg-name').value = '';
+      document.getElementById('reg-id').value   = '';
+      document.getElementById('reg-preview').style.display = 'none';
+      regFile = null;
+      checkApi();
+    } else {
+      toast(d.detail || 'Registration failed', 'err');
+    }
+  } catch(e) {
+    toast('API error: ' + e.message, 'err');
+  }
+}
+
+// ── Init ──────────────────────────────────────────────────
+const today = new Date().toISOString().slice(0,10);
+document.getElementById('filter-date').value = today;
+
+checkApi();
+setInterval(checkApi, 10000);
+connectWS();
+loadAttendance();
+</script>
+</body>
+</html>

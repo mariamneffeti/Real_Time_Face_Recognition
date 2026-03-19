@@ -25,16 +25,19 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from core.engine import FaceEngine
+from datetime import datetime, timezone
+from dotenv import load_dotenv
 
+load_dotenv()
 
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger("facevision.api")
 
-DB_PATH = "data/attendance.db"
-Model_DB = "data/face_db.pkl"
-Backend = "deepface"  # or "insightface"
-THRESHOLD = 0.55
+THRESHOLD = float(os.getenv("THRESHOLD", 0.55))
+BACKEND   = os.getenv("BACKEND", "deepface")
+DB_PATH   = os.getenv("DB_PATH", "data/attendance.db")
+Model_DB  = os.getenv("MODEL_DB", "data/face_db.pkl")
 
 Path("data").mkdir(exist_ok=True)
 Path("static").mkdir(exist_ok=True)
@@ -60,12 +63,13 @@ def init_db() -> sqlite3.Connection:
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_person ON attendance (person_id)")
     conn.commit()
     return conn
-
+db_conn.execute("PRAGMA journal_mode=WAL")
+db_conn.execute("PRAGMA synchronous=NORMAL")
 
 
 def log_attendance(conn: sqlite3.Connection, person_id: str, name: str, similarity: float, source: str = "camera") -> None:
     """Log attendance record to database (max once per 60 seconds per person)."""
-    now = datetime.now() 
+    now = datetime.now(timezone.utc)
     recent = conn.execute("SELECT * FROM attendance WHERE person_id = ? AND timestamp > datetime('now','-60 seconds')",
                           (person_id,)).fetchone()
     if recent:
@@ -174,7 +178,7 @@ async def register(
 async def recognize(image: UploadFile = File(...), log: bool = True):
     """Recognize faces in uploaded image and optionally log attendance."""
     img = await decode_upload(image)
-    elapsed_ms, detections = engine.process_frame(img)  # FIX: correct unpacking (elapsed_ms, detections)
+    elapsed_ms, detections = await asyncio.to_thread(engine.process_frame, img)
 
     results = []
     for det in detections:
@@ -213,14 +217,26 @@ def get_attendance(
     return [dict(r) for r in rows]
 
 
-@app.get("/people", response_model=list[PersonInfo], summary="List registered people")
+@app.get("/people", response_model=list[PersonInfo])
 def list_people():
     db = engine.database
     seen = {}
     for pid, name in zip(db.ids, db.names):
-        if pid not in seen:
-            seen[pid] = name
-    return [{"person_id": pid, "name": name} for pid, name in seen.items()]
+        seen.setdefault(pid, name)
+
+    people = []
+    for pid, name in seen.items():
+        row = db_conn.execute(
+            "SELECT MAX(timestamp) as last_seen, COUNT(*) as total, AVG(similarity) as avg_sim "
+            "FROM attendance WHERE person_id=?", (pid,)
+        ).fetchone()
+        people.append(PersonInfo(
+            person_id=pid, name=name,
+            last_seen=row["last_seen"],
+            total_detections=row["total"] or 0,
+            average_similarity=round(row["avg_sim"], 4) if row["avg_sim"] else None,
+        ))
+    return people
 
 
 @app.delete("/people/{person_id}", summary="Remove a person")

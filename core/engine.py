@@ -63,10 +63,13 @@ class FaceDatabase:
         self.embeddings = np.vstack([self.embeddings, emb]) if len(self.embeddings) else emb
         self.names.append(name)
         self.ids.append(person_id or name.lower().replace(" ", "_"))
+
+
     def save(self, path: Path) -> None:
         Path(path).parent.mkdir(parents=True, exist_ok=True)
         with open(path, "wb") as f:
             pickle.dump({"embeddings": self.embeddings, "names": self.names, "ids": self.ids}, f)
+        
         logger.info(f"Saved {len(self.names)} faces to {path}")
     
     @classmethod
@@ -216,7 +219,10 @@ class FaceEngine:
         else:
             self._backend = _DeepFaceBackend()
         logger.info("FaceEngine initialized with backend: %s, threshold: %.2f, database has %d people", backend, threshold, len(self._db))
-    
+
+        import threading
+        self._lock = threading.Lock()  # For thread-safe database access
+        
     def register(self, name: str, image: np.ndarray, person_id: Optional[str] = None) -> bool:
         """Register a new face to the database from an image.
         Takes the largest face detected (usually the main subject).
@@ -325,7 +331,7 @@ class FaceEngine:
             
             # Draw corner brackets (looks better than full box)
             cl = 14  # corner line length
-            for cx, cy, sx, xy in [(x1, y1, 1, 1), (x2, y1, -1, 1), (x1, y2, 1, -1), (x2, y2, -1, 1)]:
+            for cx, cy, sx, xy in [(x1, y1, 1, 1), (x2, y1, -1, 1), (x1, y2, 1, -1), (x2, y2, -1, -1)]:
                 cv2.line(frame, (cx, cy), (cx + cl * sx, cy), color, 3)  # horizontal line
                 cv2.line(frame, (cx, cy), (cx, cy + cl * xy), color, 3)  # vertical line
             

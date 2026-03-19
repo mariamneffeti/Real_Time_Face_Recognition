@@ -86,7 +86,8 @@ def run_video(engine: FaceEngine, source, batch_size: int = 1):
         frame = cv2.imread(source)
         if frame is None:
             sys.exit(f"[ERROR] Cannot open image: {source}")
-        annotated, detections = engine.process_frame(frame)
+        elapsed_ms, detections = engine.process_frame(frame)
+        annotated = engine._draw(frame.copy(), detections)
         draw_hud(annotated, detections, fps=0.0)
         print(f"Detections: {[(d.identity, f'{d.similarity:.2f}') for d in detections]}")
         cv2.imshow("FaceVision", annotated)
@@ -102,7 +103,6 @@ def run_video(engine: FaceEngine, source, batch_size: int = 1):
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
 
     fps_counter  = FPSCounter()
-    frame_buffer = FrameBuffer(batch_size)
     last_dets    = []
     last_frame   = None
     process_every = max(1, batch_size)

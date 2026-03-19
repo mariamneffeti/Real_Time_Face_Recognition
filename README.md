@@ -363,6 +363,10 @@ Suggestions for further improvements:
 - Emotion/age detection
 - Batch attendance import/export
 
+## 🐳 Docker
+A Dockerfile and docker-compose.yml are included for containerized deployment.
+Tested on Linux. On Windows, ensure WSL 2 is properly configured before running
+`docker compose up --build`.
 ---
 
 ## 📄 License

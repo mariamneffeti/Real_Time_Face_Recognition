@@ -1,11 +1,8 @@
-# ── Privacy & Security ──
-# NEVER commit face embeddings or attendance records
 data/
 *.db
 *.sqlite
 *.pkl
 
-# Do NOT commit face images or test photos
 *.jpg
 *.jpeg
 *.png
@@ -15,7 +12,6 @@ data/
 /test_images/
 /photos/
 
-# ── Python & Development ──
 __pycache__/
 *.py[cod]
 *$py.class
@@ -41,7 +37,6 @@ wheels/
 .installed.cfg
 *.egg
 
-# ── IDE & Editor ──
 .vscode/
 .idea/
 *.swp
@@ -50,21 +45,21 @@ wheels/
 .DS_Store
 .pyc
 
-# ── Environment Files ──
 .env
 .env.local
 .env.*.local
 
-# ── Model Cache ──
 ~/.deepface/
 ~/.insightface/
 .deepface/
 .insightface/
 
-# ── Logs ──
 *.log
 logs/
 
-# ── OS ──
 .DS_Store
 Thumbs.db
+__pycache__/
+*.jpg
+*.jpeg
+*.png

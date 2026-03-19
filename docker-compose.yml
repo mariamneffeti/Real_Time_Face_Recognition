@@ -1,0 +1,14 @@
+version: "3.9"
+
+services:
+  facevision:
+    build: .
+    container_name: facevision
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data:/app/data        # persist face DB & attendance
+    environment:
+      - THRESHOLD=0.55
+      - BACKEND=deepface
+    restart: unless-stopped
