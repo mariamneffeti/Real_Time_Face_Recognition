@@ -1,6 +1,6 @@
 # FaceVision - Face Recognition System
 ## v1.0 - Improved Edition
-
+![CI](https://github.com/mariamneffeti/Real_Time_Face_Recognition/actions/workflows/ci.yml/badge.svg)
 A modern real-time face recognition and attendance tracking system using DeepFace/InsightFace.
 
 ---
