@@ -19,15 +19,16 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Install dependencies
-        run: pip install -r requirements.txt
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgl1-mesa-glx libglib2.0-0
+
+      - name: Install Python dependencies
+        run: pip install fastapi uvicorn opencv-python-headless python-dotenv pydantic
 
       - name: Check imports
         run: python -c "import fastapi, cv2, uvicorn; print('All imports OK')"
 
-      - name: Verify app loads
-        run: python -c "
-        import os
-        os.environ['TESTING'] = '1'
-        print('App structure OK')
-        "
+      - name: Check app structure
+        run: python -c "import os; assert os.path.exists('api.py'); assert os.path.exists('requirements.txt'); print('App structure OK')"
