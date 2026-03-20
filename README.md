@@ -1,375 +1,320 @@
-# FaceVision - Face Recognition System
-## v1.0 - Improved Edition
+# FaceVision — Real-Time Face Recognition System
+> v1.0 · Improved Edition
+
 ![CI](https://github.com/mariamneffeti/Real_Time_Face_Recognition/actions/workflows/ci.yml/badge.svg)
-A modern real-time face recognition and attendance tracking system using DeepFace/InsightFace.
+
+A modern real-time face recognition and attendance tracking system built with **DeepFace** / **InsightFace**, **FastAPI**, and a responsive web dashboard.
 
 ---
 
 ## 🎯 Features
 
-### Core Functionality
-- **Real-time face detection & recognition** from webcam or video files
-- **Automatic attendance logging** with timestamp and confidence scores  
-- **Face registration** with single or multiple reference images
-- **Configurable detection threshold** for sensitivity control
-- **Performance metrics** (FPS, inference time, detection stats)
+### Core
+- Real-time face detection & recognition from webcam or video files
+- **Anti-spoofing / liveness detection** — rejects photos and screens
+- Automatic attendance logging with timestamps and confidence scores
+- Face registration with single or multiple reference images
+- Configurable detection threshold for sensitivity control
+- Performance metrics: FPS, inference time, detection stats
 
 ### Web Dashboard
-- **Live camera feed** with face detection overlay
-- **Current detections** display with confidence scores
-- **Attendance log** with date/person filtering
-- **People management** - register, view, and delete personnel
-- **Statistics dashboard** with system metrics
-- **Responsive dark-themed UI** for modern appearance
+- Live camera feed with face detection overlay
+- Real-time detections panel via WebSocket (updates instantly)
+- Attendance log with date/person filtering
+- People management — register, view, and delete personnel
+- Statistics dashboard with system metrics
+- Responsive dark-themed UI
 
 ### API Endpoints
-- `POST /register` - Register new person with face image
-- `POST /recognize` - Recognize faces in uploaded image
-- `GET /stream` - MJPEG live stream from camera
-- `GET /ws/stream` - WebSocket for real-time detections
-- `GET /attendance` - Query attendance records with filters
-- `GET /people` - List all registered people with stats
-- `DELETE /people/{person_id}` - Remove person from database
-- `GET /stats` - Get engine and database statistics
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST` | `/register` | Register new person with face image |
+| `POST` | `/recognize` | Recognize faces in uploaded image |
+| `GET` | `/stream` | MJPEG live stream from camera |
+| `GET` | `/ws/stream` | WebSocket for real-time detections |
+| `GET` | `/attendance` | Query attendance records with filters |
+| `GET` | `/people` | List all registered people with stats |
+| `DELETE` | `/people/{person_id}` | Remove person from database |
+| `GET` | `/stats` | Get engine and database statistics |
 
-## Liveness Detection
-Download the model before running:
-curl -L "https://github.com/minivision-ai/..." -o models/liveness.onnx
+---
+
+## 🧠 How It Works
+
+### Tech Stack
+| Layer | Technology | Why |
+|-------|-----------|-----|
+| Backend | FastAPI | Async, fast, auto-generates API docs |
+| Face Recognition | DeepFace (FaceNet512) | Best accuracy on diverse faces, easy setup |
+| Anti-Spoofing | ONNX (MiniFASNet) | Lightweight liveness detection on CPU |
+| Database | SQLite | Lightweight, zero-config, perfect for local deployment |
+| Frontend | Vanilla JS + HTML | No build step, fast to load |
+| Streaming | MJPEG + WebSocket | Low latency for real-time camera feed |
+
+### Recognition Pipeline
+1. **Frame capture** — OpenCV reads from webcam
+2. **Face detection** — DeepFace locates faces in the frame
+3. **Liveness check** — MiniFASNet verifies the face is real, not a photo
+4. **Embedding extraction** — Each face is converted to a 512-dimension vector
+5. **Similarity search** — Vector compared to registered faces using cosine similarity
+6. **Attendance logging** — Matches above threshold saved to SQLite with timestamp
+
 ---
 
 ## 📋 Installation
 
 ### Requirements
 - Python 3.9+
-- OpenCV (opencv-python)
-- FastAPI & Uvicorn
-- DeepFace or InsightFace
-- SQLite3 (built-in)
+- Webcam (for live detection)
 
 ### Setup
-
 ```bash
-# 1. Clone/download project
-cd Face_recognition
+# 1. Clone the repository
+git clone https://github.com/mariamneffeti/Real_Time_Face_Recognition.git
+cd Real_Time_Face_Recognition
 
-# 2. Install dependencies
+# 2. Create a virtual environment
+python -m venv venv
+venv\Scripts\activate        # Windows
+source venv/bin/activate     # Mac/Linux
+
+# 3. Install dependencies
 pip install -r requirements.txt
 
-# 3. Create data directory
+# 4. Copy environment config
+cp .env.example .env
+
+# 5. Create data directory
 mkdir -p data
+
+# 6. Download liveness model
+curl -L "https://github.com/minivision-ai/Silent-Face-Anti-Spoofing/raw/master/resources/anti_spoof_models/2.7_80x80_MiniFASNetV2.onnx" -o models/liveness.onnx
+
+# 7. Verify setup
+python verify_setup.py
 ```
 
 ---
 
 ## 🚀 Usage
 
-### CLI Interface (run.py)
+### Web Dashboard (Recommended)
+```bash
+uvicorn api:app --host 0.0.0.0 --port 8000 --reload
 
+# Dashboard:  http://localhost:8000/
+# API docs:   http://localhost:8000/docs
+```
+
+### CLI Interface
 ```bash
 # Webcam real-time recognition
 python run.py
 
-# Process video file
-python run.py --source video.mp4
-
-# Process single image
-python run.py --source photo.jpg
-
-# Register new face
+# Register a new face
 python run.py --register "Alice" photo.jpg
 
-# Use DeepFace backend (recommended)
-python run.py --backend deepface
+# Process a video file
+python run.py --source video.mp4
 
-# Adjust detection sensitivity
+# Adjust sensitivity
 python run.py --threshold 0.50
+
+# Skip frames for speed
+python run.py --skip 2
 ```
 
-**Controls (while running):**
-- `Q` / `ESC` - Quit
-- `S` - Save snapshot
-- `+` / `-` - Adjust threshold
-- `L` - Toggle landmarks
-
-### Web API (api.py)
-
-```bash
-# Start API server
-uvicorn api:app --host 0.0.0.0 --port 8000 --reload
-
-# Access dashboard at http://localhost:8000/
-# API documentation at http://localhost:8000/docs
-```
+**Keyboard controls:**
+| Key | Action |
+|-----|--------|
+| `Q` / `ESC` | Quit |
+| `S` | Save snapshot |
+| `+` / `-` | Adjust threshold |
+| `L` | Toggle landmarks |
 
 ---
 
-## 🎨 Web Dashboard Features
+## 🐳 Docker
 
-### Dashboard Tab
-- Live camera feed with real-time detections
-- Current face detections panel
-- System statistics (people, detections, FPS)
-- One-click snapshot capture
+```bash
+docker compose up --build
+# Visit http://localhost:8000
+```
 
-### Attendance Log
-- View all attendance records
-- Filter by date and person
-- See confidence scores
-- Track detection source (camera/upload)
-
-### Registered People
-- Grid view of all registered individuals
-- Detection count and average confidence
-- Last seen timestamp
-- Quick delete option
-
-### Register New Face
-- Drag-and-drop image upload
-- Face detection validation
-- Automatic ID generation
-- Image preview before registration
+> On Windows, ensure Docker Desktop is running and WSL 2 is configured first.
 
 ---
 
 ## ⚙️ Configuration
 
-### api.py Constants
-```python
-DB_PATH = "data/attendance.db"        # Attendance database
-Model_DB = "data/face_db.pkl"         # Face embeddings database
-Backend = "deepface"                   # or "insightface"
-THRESHOLD = 0.55                       # Detection confidence threshold (0-1)
+Copy `.env.example` to `.env` and adjust as needed:
+
+```env
+THRESHOLD=0.55
+BACKEND=deepface
+DB_PATH=data/attendance.db
+MODEL_DB=data/face_db.pkl
 ```
 
-### run.py Arguments
+### CLI Arguments
 | Argument | Default | Description |
 |----------|---------|-------------|
-| `--source` | `0` | 0=webcam, path to video/image |
+| `--source` | `0` | `0` = webcam, or path to video/image |
 | `--backend` | `deepface` | Detection backend |
-| `--threshold` | `0.55` | Similarity threshold (0-1) |
+| `--threshold` | `0.55` | Similarity threshold (0–1) |
 | `--db` | `data/face_db.pkl` | Face database path |
-| `--batch` | `1` | Batch size (GPU optimization) |
+| `--batch` | `1` | Batch size (GPU optimisation) |
 | `--skip` | `1` | Process every Nth frame |
-| `--landmarks` | - | Show facial landmarks |
-| `--register` | - | Register: `--register "Name" image.jpg` |
+| `--landmarks` | — | Show facial landmarks |
+| `--register` | — | `--register "Name" image.jpg` |
 
 ---
 
 ## 🔧 Backend Comparison
 
-### DeepFace (Recommended)
-- ✅ Easier setup (auto model download)
-- ✅ Multiple model options
-- ✅ Better accuracy on diverse faces
-- ❌ Slightly slower inference
-- Model: FaceNet512
+| | DeepFace ✅ Recommended | InsightFace |
+|---|---|---|
+| Setup | Easy (auto model download) | Manual model install required |
+| Accuracy | Better on diverse faces | Good |
+| Speed | Slightly slower | Faster inference |
+| Model | FaceNet512 | ArcFace (buffalo_l) |
 
-### InsightFace
-- ✅ Faster inference
-- ✅ Lighter weight
-- ❌ Manual model installation required
-- ❌ More complex setup
-- Model: ArcFace (buffalo_l)
+---
+
+## 🛡️ Liveness Detection (Anti-Spoofing)
+
+Prevents attackers from fooling the system with a printed photo or screen.
+
+```
+❌ Hold up a photo of Alice  →  "Spoof detected"
+✅ Real Alice in front of camera  →  "Hello Alice (92%)"
+```
+
+Uses MiniFASNetV2 — a lightweight ONNX model that runs entirely on CPU with no extra GPU requirements.
 
 ---
 
 ## 📊 Database Schema
 
-### attendance table
+### `attendance` table
 ```sql
 CREATE TABLE attendance (
-    id INTEGER PRIMARY KEY,
-    person_id TEXT,              -- Unique person identifier
-    name TEXT,                   -- Person's name
-    timestamp TEXT,              -- ISO format datetime
-    date TEXT,                   -- YYYY-MM-DD
-    similarity REAL,            -- Confidence score (0-1)
-    source TEXT                 -- 'camera' or 'upload'
+    id         INTEGER PRIMARY KEY,
+    person_id  TEXT,     -- Unique person identifier
+    name       TEXT,     -- Person's name
+    timestamp  TEXT,     -- ISO format datetime
+    date       TEXT,     -- YYYY-MM-DD
+    similarity REAL,     -- Confidence score (0–1)
+    source     TEXT      -- 'camera' or 'upload'
 )
 ```
 
-### face_db.pkl
-- Pickled Python dictionary with:
-  - `embeddings`: NumPy array (N, 512) of face vectors
-  - `names`: List of person names
-  - `ids`: Unique person IDs
-
----
-
-## 🐛 Troubleshooting
-
-### "No faces detected in frame"
-- Improve lighting conditions
-- Get face closer to camera (30cm-1m)
-- Lower threshold: `--threshold 0.45`
-
-### Camera not opening
-- Check camera permissions
-- Try different source: `python run.py --source 1`
-- Verify no other app is using camera
-
-### DeepFace model download fails
-- Check internet connection
-- Try: `python -c "from deepface import DeepFace; DeepFace.extract_faces(np.zeros((100,100,3)))"` 
-- Models download to: `~/.deepface/weights/`
-
-### InsightFace requires model download
-- Run: `python download_models.py` (if provided)
-- Or use DeepFace instead: `--backend deepface`
-
-### Poor recognition accuracy
-- Register with 2-3 different photos per person
-- Ensure good lighting in both registration and detection
-- Increase threshold if too many false positives
-- Decrease threshold if missing detections
-
----
-
-## 🎯 Performance Tips
-
-1. **Use frame skipping** for real-time streams:
-   ```bash
-   python run.py --skip 2  # Process every 2nd frame
-   ```
-
-2. **Enable batch processing** on GPU:
-   ```bash
-   python run.py --batch 4  # Process 4 frames at once
-   ```
-
-3. **Use DeepFace** - better CPU performance
-
-4. **Lower image resolution** if running on weak hardware
-
-5. **Adjust JPEG quality** in `api.py` `_gen_frames()`:
-   ```python
-   cv2.IMWRITE_JPEG_QUALITY = 60  # Default 80
-   ```
-
----
-
-## 🔒 Security & Privacy
-
-### Recommendations
-- **Do not publicly expose** the API without authentication
-- **Secure the attendance database** - contains personal data
-- **Use HTTPS** in production
-- **Implement API authentication** (JWT, API keys)
-- **Regular backups** of face_db.pkl and attendance.db
-- **Clean old attendance records** periodically
-
-### Example: Add API authentication
-```python
-from fastapi.security import HTTPBearer, HTTPAuthCredentials
-security = HTTPBearer()
-
-@app.post("/recognize")
-async def recognize(credentials: HTTPAuthCredentials, ...):
-    if credentials.credentials != "secret-key":
-        raise HTTPException(401, "Unauthorized")
-    ...
-```
-
----
-
-## 📝 Improvements Made
-
-### Bug Fixes
-✅ Fixed FPS counter double-call bug  
-✅ Fixed return value unpacking (`process_frame()`)  
-✅ Fixed known/unknown classification (case sensitivity)  
-✅ Fixed DeepFace model name compatibility  
-✅ Changed backend default to `deepface` (more reliable)
-
-### Error Handling
-✅ Input validation on all endpoints  
-✅ File size and format checks  
-✅ Graceful error messages to users  
-✅ Error logging throughout  
-✅ WebSocket error recovery
-
-### UI/UX Improvements
-✅ Modern dark-themed dashboard  
-✅ Real-time statistics  
-✅ Attendance history with filtering  
-✅ People management (CRUD)  
-✅ Live camera stream  
-✅ Drag-and-drop file upload  
-✅ Responsive design
-
-### Code Quality
-✅ Better error messages  
-✅ Input sanitization  
-✅ Comprehensive logging  
-✅ Type hints  
-✅ Documentation
-
----
-
-## 📚 API Usage Examples
-
-### Register a Person
-```bash
-curl -X POST http://localhost:8000/register \
-  -F "name=John Doe" \
-  -F "image=@photo.jpg"
-```
-
-### Recognize Faces
-```bash
-curl -X POST http://localhost:8000/recognize \
-  -F "image=@test.jpg"
-```
-
-### Get Attendance (Today)
-```bash
-curl "http://localhost:8000/attendance?date_filter=2026-03-14"
-```
-
-### List Registered People
-```bash
-curl http://localhost:8000/people
-```
+### `face_db.pkl`
+- `embeddings` — NumPy array `(N, 512)` of face vectors
+- `names` — list of person names
+- `ids` — unique person IDs
 
 ---
 
 ## 📦 Project Structure
 
 ```
-Face_recognition/
+Real_Time_Face_Recognition/
 ├── run.py                 # CLI entry point
 ├── api.py                 # FastAPI server
+├── verify_setup.py        # Setup verification
+├── requirements.txt
+├── .env.example           # Environment config template
+├── Dockerfile
+├── docker-compose.yml
+├── .github/
+│   └── workflows/
+│       └── ci.yml         # GitHub Actions CI
 ├── core/
 │   ├── __init__.py
-│   └── engine.py         # Face recognition engine
+│   ├── engine.py          # Face recognition engine
+│   └── liveness.py        # Anti-spoofing module
+├── models/
+│   └── liveness.onnx      # Liveness model (download separately)
 ├── static/
-│   ├── index.html        # Redirect to dashboard
-│   └── dashboard.html    # Web UI
-├── data/
-│   ├── face_db.pkl       # Face embeddings (auto-created)
-│   └── attendance.db     # Attendance log (auto-created)
-└── requirements.txt      # Python dependencies
+│   ├── index.html
+│   └── dashboard.html
+└── data/                  # Auto-created at runtime
+    ├── face_db.pkl
+    └── attendance.db
 ```
 
 ---
 
-## 🤝 Contributing
+## 📚 API Examples
 
-Suggestions for further improvements:
-- Face tracking across frames
-- Multiple detection models (YOLO, etc.)
-- Docker containerization
-- Docker Compose for easy deployment
-- REST API authentication
-- Database backup/restore utilities
-- Facial landmarks visualization
-- Emotion/age detection
-- Batch attendance import/export
+```bash
+# Register a person
+curl -X POST http://localhost:8000/register \
+  -F "name=John Doe" \
+  -F "image=@photo.jpg"
 
-## 🐳 Docker
-A Dockerfile and docker-compose.yml are included for containerized deployment.
-Tested on Linux. On Windows, ensure WSL 2 is properly configured before running
-`docker compose up --build`.
+# Recognize faces
+curl -X POST http://localhost:8000/recognize \
+  -F "image=@test.jpg"
+
+# Get today's attendance
+curl "http://localhost:8000/attendance?date_filter=2026-03-20"
+
+# List registered people
+curl http://localhost:8000/people
+```
+
+---
+
+## 🎯 Performance Tips
+
+1. **Frame skipping** for real-time: `python run.py --skip 2`
+2. **Batch processing** on GPU: `python run.py --batch 4`
+3. Use **DeepFace** for better CPU performance
+4. Lower image resolution on weak hardware
+
+---
+
+## 🐛 Troubleshooting
+
+| Problem | Solution |
+|---------|----------|
+| "No faces detected" | Improve lighting; move closer (30cm–1m); try `--threshold 0.45` |
+| Camera not opening | Check permissions; try `--source 1` |
+| DeepFace model fails | Check internet; models download to `~/.deepface/weights/` |
+| Poor accuracy | Register 2–3 photos per person; ensure good lighting |
+| Liveness model missing | Run the curl download command in setup step 6 |
+
+---
+
+## 🔒 Security & Privacy
+
+- Do **not** publicly expose the API without authentication
+- Use **HTTPS** in production
+- The attendance database contains personal data — secure it accordingly
+- Back up `face_db.pkl` and `attendance.db` regularly
+- `data/` and `models/` are excluded from version control via `.gitignore`
+
+---
+
+## 📝 Changelog
+
+### Bug Fixes
+- Fixed FPS counter double-call bug
+- Fixed WebSocket URL construction in frontend
+- Fixed known/unknown classification (case sensitivity)
+- Fixed DeepFace model name compatibility
+- Fixed `db_conn` PRAGMA calls outside function scope
+
+### Features Added
+- Liveness / anti-spoofing detection
+- `.env` based configuration
+- GitHub Actions CI pipeline
+- Docker + Docker Compose support
+- WebSocket real-time detections panel
+- Auto-refreshing attendance table
+
 ---
 
 ## 📄 License
@@ -378,15 +323,4 @@ This project is provided as-is for educational and commercial use.
 
 ---
 
-## 💡 Support
-
-For issues or questions:
-1. Check the troubleshooting section
-2. Review logs in console output
-3. Verify all dependencies are installed
-4. Test with the example image/video files
-
----
-
-**Last Updated:** March 14, 2026  
-**Status:** Production Ready
+**Status:** Production Ready · **Last Updated:** March 2026
